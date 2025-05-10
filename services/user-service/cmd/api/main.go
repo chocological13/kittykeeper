@@ -5,8 +5,8 @@ import (
 	"errors"
 	"github.com/chocological13/kittykeeper/services/user-service/config"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/database"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/logger"
 	"github.com/gin-gonic/gin"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,32 +16,45 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+var log = logger.NewLogger("user-service")
+
 func main() {
+	log.Info("Starting user service")
+
 	// Load config
-	cfg, err := config.LoadConfig()
+	// TODO : get authConfig from config when setting up auth
+	cfg, _, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("failed to load config for user service: %v", err)
+		log.WithError(err).Fatal("failed to load config")
 	}
 
 	// Connect to database
-	dbPool := database.ConnectDB(cfg.DatabaseUrl)
-	log.Println("Connected to user service database")
-	defer dbPool.Close()
+	db := database.ConnectDB(cfg.DatabaseUrl)
+	log.Info("Connected to database")
+	if db == nil {
+		log.WithError(err).Fatal("failed to connect to database")
+	}
+	defer db.Close()
 
 	// Connect to redis
 	redisClient := database.ConnectRedis(cfg.RedisUrl)
-	log.Println("Connected to user service redis")
+	log.Info("Connected to user redis")
+	if redisClient == nil {
+		log.WithError(err).Fatal("failed to connect to redis")
+	}
 	defer redisClient.Close()
 
 	// Run migrations
 	err = database.RunMigrations(cfg.DatabaseUrl)
 	if err != nil {
-		log.Fatalf("user service failed to run migrations: %v", err)
+		log.WithError(err).Fatal("failed to run migrations")
 	}
-	log.Println("User service migrations ran successfully")
+	log.Info("Migrations ran successfully")
 
 	// Setup gin router
 	r := gin.Default()
+
+	// TODO : services and handlers
 
 	// TODO : add routes / create route set up separately
 
@@ -53,16 +66,21 @@ func main() {
 	})
 
 	// Start server
+	startServer(r, cfg.Port)
+}
+
+// startServer is a helper that starts the user service server
+func startServer(r *gin.Engine, port string) {
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
+		Addr:    ":" + port,
 		Handler: r,
 	}
 
 	// Start server in goroutine
 	go func() {
-		log.Printf("User service listening on port %s\n", cfg.Port)
+		log.Infof("Listening on port %s\n", port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("failed to start user service server: %s\n", err)
+			log.Fatalf("failed to start server: %s\n", err)
 		}
 	}()
 
@@ -70,13 +88,13 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("shutting down user service server...")
+	log.Info("shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("failed to shutdown user service server: %s\n", err)
+		log.Fatalf("failed to shutdown server: %s\n", err)
 	}
 
-	log.Println("User service server exited properly")
+	log.Info("Server exited properly")
 }
