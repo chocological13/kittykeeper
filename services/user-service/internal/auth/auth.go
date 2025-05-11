@@ -38,10 +38,10 @@ type AuthConfig struct {
 }
 
 type AuthService struct {
-	config AuthConfig
+	config *AuthConfig
 }
 
-func NewAuthService(config AuthConfig) *AuthService {
+func NewAuthService(config *AuthConfig) *AuthService {
 	return &AuthService{
 		config: config,
 	}

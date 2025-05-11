@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/chocological13/kittykeeper/services/user-service/config"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/auth"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/database"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/database/repository"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/handlers"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/logger"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/service"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
@@ -23,7 +27,7 @@ func main() {
 
 	// Load config
 	// TODO : get authConfig from config when setting up auth
-	cfg, _, err := config.LoadConfig()
+	cfg, authCfg, err := config.LoadConfig()
 	if err != nil {
 		log.WithError(err).Fatal("failed to load config")
 	}
@@ -55,8 +59,16 @@ func main() {
 	r := gin.Default()
 
 	// TODO : services and handlers
+	queries := repository.New(db)
+
+	authService := auth.NewAuthService(authCfg)
+	tokenStore := auth.NewTokenStore(redisClient, authCfg.AccessTokenTTL, authCfg.RefreshTokenTTL)
+	userService := service.NewUserService(queries, authService, tokenStore)
+
+	userHandler := handlers.NewUserHandler(userService)
 
 	// TODO : add routes / create route set up separately
+	r.POST("/register", userHandler.Register)
 
 	// health check
 	r.GET("/health", func(c *gin.Context) {
