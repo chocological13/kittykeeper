@@ -5,18 +5,20 @@
 package repository
 
 import (
+	"time"
+
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github/google/uuid"
 )
 
 type User struct {
-	ID           uuid.UUID          `json:"id"`
-	Username     string             `json:"username"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	FirstName    pgtype.Text        `json:"first_name"`
-	LastName     pgtype.Text        `json:"last_name"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	EditedAt     pgtype.Timestamptz `json:"edited_at"`
-	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+	ID           uuid.UUID   `json:"id"`
+	Username     string      `json:"username"`
+	Email        string      `json:"email"`
+	PasswordHash string      `json:"password_hash"`
+	FirstName    pgtype.Text `json:"first_name"`
+	LastName     pgtype.Text `json:"last_name"`
+	CreatedAt    time.Time   `json:"created_at"`
+	EditedAt     time.Time   `json:"edited_at"`
+	DeletedAt    *time.Time  `json:"deleted_at"`
 }

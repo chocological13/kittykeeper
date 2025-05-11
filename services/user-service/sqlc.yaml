@@ -15,6 +15,14 @@ sql:
         emit_empty_slices: true
         overrides:
           - db_type: "uuid"
-            go_type: "github/google/uuid.UUID"
-          - db_type: "timestamptz"
-            go_type: "time.Time"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "pg_catalog.timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "pg_catalog.timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+            nullable: true
