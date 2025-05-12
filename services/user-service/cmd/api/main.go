@@ -71,12 +71,14 @@ func main() {
 	// TODO : add routes / create route set up separately
 	r.POST("/register", userHandler.Register)
 	r.POST("/login", userHandler.Login)
+	r.POST("/refresh", userHandler.RefreshToken)
 
 	// TODO : protected routes
 	authRoutes := r.Group("/")
 	authRoutes.Use(authMiddleware.RequireAuth())
 	{
 		authRoutes.GET("/profile", userHandler.GetProfile)
+		authRoutes.POST("/logout", userHandler.Logout)
 	}
 
 	// health check

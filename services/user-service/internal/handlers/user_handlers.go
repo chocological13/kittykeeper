@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/auth"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/models"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/service"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/utils"
@@ -122,4 +123,50 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 			LastName:  user.LastName,
 		},
 	})
+}
+
+func (h *UserHandler) RefreshToken(c *gin.Context) {
+	var req models.RefreshTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errs := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": errs})
+		return
+	}
+
+	newTokens, err := h.userService.RefreshTokens(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, auth.ErrInvalidToken) || errors.Is(err, auth.ErrExpiredToken) {
+			statusCode = http.StatusUnauthorized
+		}
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.RefreshTokenResponse{
+		AccessToken:  newTokens.AccessToken,
+		RefreshToken: newTokens.RefreshToken,
+	})
+}
+
+func (h *UserHandler) Logout(c *gin.Context) {
+	// * Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	id, ok := userID.(uuid.UUID)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	if err := h.userService.Logout(c.Request.Context(), id); err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }

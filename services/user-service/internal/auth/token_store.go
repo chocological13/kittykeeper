@@ -27,14 +27,16 @@ func NewTokenStore(client *redis.Client, accessTokenTTL, refreshTokenTTL time.Du
 	}
 }
 
-func (s *TokenStore) StoreAccessToken(ctx context.Context, token string, userID uuid.UUID) error {
-	key := fmt.Sprintf("access:%s", userID.String())
-	return s.client.Set(ctx, key, token, s.accessTokenTTL).Err()
-}
+func (s *TokenStore) StoreTokens(ctx context.Context, accessToken, refreshToken string, userID uuid.UUID) error {
+	accessKey := fmt.Sprintf("access:%s", userID.String())
+	refreshKey := fmt.Sprintf("refresh:%s", userID.String())
 
-func (s *TokenStore) StoreRefreshToken(ctx context.Context, token string, userID uuid.UUID) error {
-	key := fmt.Sprintf("refresh:%s", userID.String())
-	return s.client.Set(ctx, key, token, s.refreshTokenTTL).Err()
+	pipe := s.client.Pipeline()
+	pipe.Set(ctx, accessKey, accessToken, s.accessTokenTTL)
+	pipe.Set(ctx, refreshKey, refreshToken, s.refreshTokenTTL)
+	_, err := pipe.Exec(ctx)
+	return err
+
 }
 
 func (s *TokenStore) GetToken(ctx context.Context, userID uuid.UUID, tokenType TokenType) (string, error) {

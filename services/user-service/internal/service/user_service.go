@@ -109,11 +109,8 @@ func (s *UserService) Login(ctx context.Context, params models.LoginParams) (mod
 	}
 
 	// * Store tokens in redis
-	if err := s.tokenStore.StoreAccessToken(ctx, accessToken, dbUser.ID); err != nil {
-		return models.User{}, models.TokenPair{}, fmt.Errorf("failed to store access token in redis: %w", err)
-	}
-	if err := s.tokenStore.StoreRefreshToken(ctx, refreshToken, dbUser.ID); err != nil {
-		return models.User{}, models.TokenPair{}, fmt.Errorf("failed to store refresh token in redis: %w", err)
+	if err = s.tokenStore.StoreTokens(ctx, accessToken, refreshToken, dbUser.ID); err != nil {
+		return models.User{}, models.TokenPair{}, fmt.Errorf("failed to store tokens in redis: %w", err)
 	}
 
 	return utils.FromDBUser(dbUser), models.TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil
@@ -129,4 +126,45 @@ func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID) (models.Use
 	}
 
 	return utils.FromDBUser(dbUser), nil
+}
+
+func (s *UserService) RefreshTokens(ctx context.Context, refreshToken string) (models.TokenPair, error) {
+	// * Verify the refresh token
+	claims, err := s.auth.VerifyToken(refreshToken, auth.RefreshToken)
+	if err != nil {
+		return models.TokenPair{}, fmt.Errorf("failed to verify refresh token: %w", err)
+	}
+
+	// * Verify with Redis
+	storedToken, err := s.tokenStore.GetToken(ctx, claims.UserID, auth.RefreshToken)
+	if err != nil {
+		if errors.Is(err, auth.ErrTokenNotFound) {
+			return models.TokenPair{}, auth.ErrInvalidToken
+		}
+		return models.TokenPair{}, fmt.Errorf("failed to get refresh token from redis: %w", err)
+	}
+	if storedToken != refreshToken {
+		return models.TokenPair{}, auth.ErrInvalidToken
+	}
+
+	// * Generate new tokens
+	newAccessToken, err := s.auth.GenerateAccessToken(claims.UserID)
+	if err != nil {
+		return models.TokenPair{}, fmt.Errorf("failed to generate access token: %w", err)
+	}
+	newRefreshToken, err := s.auth.GenerateRefreshToken(claims.UserID)
+	if err != nil {
+		return models.TokenPair{}, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	// * Store new tokens in redis
+	if err = s.tokenStore.StoreTokens(ctx, newAccessToken, newRefreshToken, claims.UserID); err != nil {
+		return models.TokenPair{}, fmt.Errorf("failed to store new tokens in redis: %w", err)
+	}
+
+	return models.TokenPair{AccessToken: newAccessToken, RefreshToken: newRefreshToken}, nil
+}
+
+func (s *UserService) Logout(ctx context.Context, userID uuid.UUID) error {
+	return s.tokenStore.InvalidateTokens(ctx, userID)
 }
