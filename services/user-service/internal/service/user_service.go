@@ -9,6 +9,7 @@ import (
 	"github.com/chocological13/kittykeeper/services/user-service/internal/database/repository"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/models"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/utils"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -116,4 +117,16 @@ func (s *UserService) Login(ctx context.Context, params models.LoginParams) (mod
 	}
 
 	return utils.FromDBUser(dbUser), models.TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+}
+
+func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID) (models.User, error) {
+	dbUser, err := s.queries.GetUserById(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, ErrUserNotFound
+		}
+		return models.User{}, fmt.Errorf("failed to get user by id: %w", err)
+	}
+
+	return utils.FromDBUser(dbUser), nil
 }

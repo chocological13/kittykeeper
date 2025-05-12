@@ -6,6 +6,7 @@ import (
 	"github.com/chocological13/kittykeeper/services/user-service/internal/service"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"net/http"
 )
 
@@ -85,5 +86,40 @@ func (h *UserHandler) Login(c *gin.Context) {
 		},
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
+	})
+}
+
+func (h *UserHandler) GetProfile(c *gin.Context) {
+	// * Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	id, ok := userID.(uuid.UUID)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	user, err := h.userService.GetUserByID(c.Request.Context(), id)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, service.ErrUserNotFound) {
+			statusCode = http.StatusNotFound
+		}
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": models.UserResponse{
+			ID:        user.ID,
+			Username:  user.Username,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+		},
 	})
 }

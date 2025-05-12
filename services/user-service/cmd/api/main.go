@@ -9,6 +9,7 @@ import (
 	"github.com/chocological13/kittykeeper/services/user-service/internal/database/repository"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/handlers"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/logger"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/middleware"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/service"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -63,12 +64,20 @@ func main() {
 	authService := auth.NewAuthService(authCfg)
 	tokenStore := auth.NewTokenStore(redisClient, authCfg.AccessTokenTTL, authCfg.RefreshTokenTTL)
 	userService := service.NewUserService(queries, authService, tokenStore)
+	authMiddleware := middleware.NewAuthMiddleware(authService, tokenStore)
 
 	userHandler := handlers.NewUserHandler(userService)
 
 	// TODO : add routes / create route set up separately
 	r.POST("/register", userHandler.Register)
 	r.POST("/login", userHandler.Login)
+
+	// TODO : protected routes
+	authRoutes := r.Group("/")
+	authRoutes.Use(authMiddleware.RequireAuth())
+	{
+		authRoutes.GET("/profile", userHandler.GetProfile)
+	}
 
 	// health check
 	r.GET("/health", func(c *gin.Context) {
