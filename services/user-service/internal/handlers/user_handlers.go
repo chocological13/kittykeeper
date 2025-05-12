@@ -6,7 +6,6 @@ import (
 	"github.com/chocological13/kittykeeper/services/user-service/internal/service"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"net/http"
 )
 
@@ -20,18 +19,11 @@ func NewUserHandler(userService *service.UserService) *UserHandler {
 	}
 }
 
-var validate = validator.New()
-
 func (h *UserHandler) Register(c *gin.Context) {
 	var req models.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := validate.Struct(req); err != nil {
 		errs := utils.FormatValidationError(err)
-		c.JSON(http.StatusBadRequest, gin.H{"validation_error": errs})
+		c.JSON(http.StatusBadRequest, gin.H{"error": errs})
 		return
 	}
 

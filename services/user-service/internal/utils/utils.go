@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/database/repository"
 	"github.com/chocological13/kittykeeper/services/user-service/internal/models"
 	"github.com/go-playground/validator/v10"
+	"net/mail"
 	"strings"
 )
 
@@ -25,27 +27,35 @@ func FromDBUser(dbUser repository.User) models.User {
 func FormatValidationError(err error) map[string]string {
 	formatedErrors := make(map[string]string)
 
-	if validationErrors, ok := err.(validator.ValidationErrors); ok {
+	var validationErrors validator.ValidationErrors
+	if errors.As(err, &validationErrors) {
 		for _, err := range validationErrors {
 			field := strings.ToLower(err.Field())
-			formatedErrors[field] = formatTagMessage(err.Tag(), field)
+			param := strings.ToLower(err.Param())
+			formatedErrors[field] = formatTagMessage(err.Tag(), field, param)
 		}
 	}
 
 	return formatedErrors
 }
 
-func formatTagMessage(tag string, field string) string {
+func formatTagMessage(tag, field, param string) string {
 	switch tag {
 	case "required":
 		return fmt.Sprintf("'%s' is required", field)
 	case "email":
 		return fmt.Sprintf("'%s' is not a valid email", field)
 	case "min":
-		return fmt.Sprintf("'%s' is too short", field)
+		return fmt.Sprintf("'%s' must be at least %s", field, param)
 	case "max":
-		return fmt.Sprintf("'%s' is too long", field)
+		return fmt.Sprintf("'%s' must not be longer than %s characters", field, param)
 	default:
 		return fmt.Sprintf("'%s' is invalid", field)
 	}
+}
+
+// IsEmail to check if the provided credential is a username or an email
+func IsEmail(credential string) bool {
+	_, err := mail.ParseAddress(credential)
+	return err == nil
 }
