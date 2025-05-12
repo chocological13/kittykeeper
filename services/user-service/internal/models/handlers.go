@@ -21,3 +21,14 @@ type UserResponse struct {
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
 }
+
+type LoginRequest struct {
+	Credential string `json:"credential" binding:"required"` // <-- Can be username or email
+	Password   string `json:"password" binding:"required"`
+}
+
+type LoginResponse struct {
+	User         UserResponse `json:"user"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+}

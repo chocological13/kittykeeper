@@ -27,3 +27,8 @@ type CreateUserParams struct {
 	FirstName string
 	LastName  string
 }
+
+type LoginParams struct {
+	Credential string // <-- this can be username or email
+	Password   string
+}

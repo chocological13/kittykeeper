@@ -53,3 +53,37 @@ func (h *UserHandler) Register(c *gin.Context) {
 		},
 	})
 }
+
+func (h *UserHandler) Login(c *gin.Context) {
+	var req models.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errs := utils.FormatValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": errs})
+		return
+	}
+
+	user, tokenPair, err := h.userService.Login(c.Request.Context(), models.LoginParams{
+		Credential: req.Credential,
+		Password:   req.Password,
+	})
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, service.ErrInvalidCredentials) {
+			statusCode = http.StatusUnauthorized
+		}
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.LoginResponse{
+		User: models.UserResponse{
+			ID:        user.ID,
+			Username:  user.Username,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+		},
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+	})
+}

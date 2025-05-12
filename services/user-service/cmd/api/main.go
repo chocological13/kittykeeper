@@ -26,7 +26,6 @@ func main() {
 	log.Info("Starting user service")
 
 	// Load config
-	// TODO : get authConfig from config when setting up auth
 	cfg, authCfg, err := config.LoadConfig()
 	if err != nil {
 		log.WithError(err).Fatal("failed to load config")
@@ -69,6 +68,7 @@ func main() {
 
 	// TODO : add routes / create route set up separately
 	r.POST("/register", userHandler.Register)
+	r.POST("/login", userHandler.Login)
 
 	// health check
 	r.GET("/health", func(c *gin.Context) {
