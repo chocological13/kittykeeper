@@ -2,8 +2,8 @@ package config
 
 import (
 	"github.com/chocological13/kittykeeper/services/user-service/internal/auth"
+	"github.com/chocological13/kittykeeper/services/user-service/internal/logger"
 	"github.com/joho/godotenv"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -16,18 +16,22 @@ type Config struct {
 	RedisUrl    string
 }
 
+var log = logger.NewLogger("user-service")
+
 // Loads config from environment variables
 func LoadConfig() (*Config, *auth.AuthConfig, error) {
-
-	err := godotenv.Load(".env")
+	var err error
+	if os.Getenv("ENVIRONMENT") != "production" {
+		err = loadGoDotEnv()
+	}
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
-	dsn := os.Getenv("DATABASE_URL")
-	port := os.Getenv("PORT")
-	environment := os.Getenv("ENV")
-	redisAddr := os.Getenv("REDIS_ADDR")
+	dsn := os.Getenv("USER_DB_URL")
+	port := os.Getenv("USER_PORT")
+	environment := os.Getenv("ENVIRONMENT")
+	redisAddr := os.Getenv("USER_REDIS_ADDR")
 
 	accessTokenSecret := os.Getenv("ACCESS_TOKEN_SECRET")
 	refreshTokenSecret := os.Getenv("REFRESH_TOKEN_SECRET")
@@ -59,4 +63,31 @@ func LoadConfig() (*Config, *auth.AuthConfig, error) {
 	}
 
 	return config, securityConfig, nil
+}
+
+func loadGoDotEnv() error {
+	var err error
+
+	// Load .env file from current directory, parent directory, parent of parent directory, and finally /app/.env
+	paths := []string{
+		".env",
+		"../.env",
+		"../../.env",
+		"/app/.env", // Docker context
+	}
+
+	for _, path := range paths {
+		if err = godotenv.Load(path); err == nil {
+			log.Infof("Loaded env file from %s", path)
+			break
+		}
+	}
+
+	if err != nil {
+		log.Warn("No .env file found for local development")
+		return err
+	}
+
+	log.Info("Loaded .env file for local development")
+	return nil
 }
