@@ -16,7 +16,13 @@ func NewLogger(module string) *log.Entry {
 		ForceColors:     true,
 	})
 	log.SetOutput(os.Stdout)
-	log.SetLevel(log.InfoLevel)
+
+	env := os.Getenv("ENVIRONMENT")
+	if env == "development" {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
 
 	return log.WithField("module", module)
 }
