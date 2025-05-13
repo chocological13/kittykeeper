@@ -18,6 +18,10 @@ ps:
 run-user-service:
 	cd services/user-service && make run
 
+.PHONY: run-cat-service
+run-cat-service:
+	cd services/cat-service && make run
+
 .PHONY: install-tools
 install-tools:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
