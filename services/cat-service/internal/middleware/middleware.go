@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"github.com/chocological13/kittykeeper/cat-service/internal/auth"
 	"github.com/gin-gonic/gin"
@@ -11,7 +12,7 @@ import (
 )
 
 type CatOwnershipChecker interface {
-	VerifyCatOwnership(ctx *gin.Context, userID, catID uuid.UUID) (bool, error)
+	VerifyCatOwnership(ctx context.Context, userID, catID uuid.UUID) (bool, error)
 }
 
 type AuthMiddleware struct {
@@ -33,14 +34,14 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			log.Error("authorization header is missing")
+			m.log.Error("authorization header is missing")
 			c.AbortWithStatusJSON(401, gin.H{"error": "authorization header is missing"})
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			log.Error("invalid authorization header format")
+			m.log.Error("invalid authorization header format")
 			c.AbortWithStatusJSON(401, gin.H{"error": "invalid authorization header format"})
 			return
 		}
@@ -50,13 +51,13 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		if err != nil {
 			var statusCode int
 			if errors.Is(err, auth.ErrExpiredToken) {
-				log.Error("expired token")
+				m.log.WithError(err).Error("token verification failed: expired token")
 				statusCode = http.StatusUnauthorized
 			} else if errors.Is(err, auth.ErrInvalidToken) || errors.Is(err, auth.ErrInvalidTokenClaims) {
-				log.Error("invalid token")
+				m.log.WithError(err).Error("token verification failed: invalid token")
 				statusCode = http.StatusBadRequest
 			} else {
-				log.Error("unknown error")
+				m.log.WithError(err).Error("token verification failed: unknown error")
 				statusCode = http.StatusUnauthorized
 			}
 			c.AbortWithStatusJSON(statusCode, gin.H{"error": err.Error()})
@@ -67,13 +68,15 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 
 		storedToken, err := m.tokenStore.GetAccessToken(c.Request.Context(), userID)
 		if err != nil {
-			log.Error("failed to get access token from Redis")
+			m.log.WithError(err).Error("failed to get access token from Redis")
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		if storedToken != tokenString {
-			log.Error("invalid token")
+			m.log.WithFields(log.Fields{
+				"user_id": userID,
+			}).Error("stored token doesn't match provided token")
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
@@ -86,30 +89,38 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 func (m *AuthMiddleware) OwnershipCheck(catService CatOwnershipChecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// * Get both cat id and user id
-		catID, err := uuid.Parse(c.Param("catID"))
+		rawID := c.Query("id")
+		catID, err := uuid.Parse(rawID)
 		if err != nil {
-			log.Error("invalid cat id")
+			m.log.WithError(err).Error("invalid cat id")
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid cat id"})
 			return
 		}
 
 		userID, exists := c.Get("userID")
 		if !exists {
-			log.Error("user not authenticated")
+			m.log.WithError(err).Error("user not authenticated - userID not found in context")
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 			return
 		}
 
 		// * Check ownership
-		isOwner, err := catService.VerifyCatOwnership(c, userID.(uuid.UUID), catID)
+		isOwner, err := catService.VerifyCatOwnership(c.Request.Context(), userID.(uuid.UUID), catID)
 		if err != nil {
-			log.Error("failed to verify cat ownership")
+			m.log.WithFields(log.Fields{
+				"cat_id":  catID,
+				"user_id": userID,
+				"error":   err.Error(),
+			}).Error("failed to verify cat ownership")
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		if !isOwner {
-			log.Warnf("user is not owner of cat with id: %s", catID)
+			m.log.WithFields(log.Fields{
+				"cat_id":  catID,
+				"user_id": userID,
+			}).Warn("user attempted to access cat they don't own")
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user is not owner of cat"})
 			return
 		}

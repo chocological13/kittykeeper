@@ -35,7 +35,7 @@ func StartServer(db *pgxpool.Pool, rdb *redis.Client, cfg *config.Config) {
 
 	// TODO : set up routes
 	rg := r.Group("/api/v1")
-	routes.SetUpRoutes(rg, authMiddleware, catHandler)
+	routes.SetUpRoutes(rg, authMiddleware, catService, catHandler)
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {

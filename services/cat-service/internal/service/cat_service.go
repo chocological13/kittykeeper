@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/chocological13/kittykeeper/cat-service/internal/database/repository"
 	"github.com/chocological13/kittykeeper/cat-service/internal/models"
 	"github.com/chocological13/kittykeeper/cat-service/internal/utils"
@@ -21,6 +23,36 @@ type CatService struct {
 
 func NewCatService(db repository.Querier) *CatService {
 	return &CatService{db: db}
+}
+
+func (s *CatService) VerifyCatOwnership(ctx context.Context, userID, catID uuid.UUID) (bool, error) {
+	// * Get owner of cat
+	ownerID, err := s.db.GetCatOwner(ctx, catID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrCatNotFound
+		}
+		return false, fmt.Errorf("failed to get cat owner: %w", err)
+	}
+
+	// * Compare with ID in context
+	return ownerID == userID, nil
+}
+
+func (s *CatService) GetCatByID(ctx context.Context, catID, userID uuid.UUID) (models.CatResponse, error) {
+	cat, err := s.db.GetCatByID(ctx, catID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.CatResponse{}, ErrCatNotFound
+		}
+		return models.CatResponse{}, fmt.Errorf("failed to get cat: %w", err)
+	}
+
+	if cat.OwnerID != userID {
+		return models.CatResponse{}, ErrNotCatOwner
+	}
+
+	return utils.FromDBCat(cat), nil
 }
 
 func (s *CatService) CreateCat(ctx context.Context, ownerID uuid.UUID, req models.CreateCatRequestParams) (models.CatResponse,
