@@ -15,14 +15,14 @@ type Cat struct {
 	ID                  uuid.UUID      `json:"id"`
 	OwnerID             uuid.UUID      `json:"owner_id"`
 	Name                string         `json:"name"`
-	Breed               pgtype.Text    `json:"breed"`
+	Breed               *string        `json:"breed"`
 	DateOfBirth         pgtype.Date    `json:"date_of_birth"`
 	Weight              pgtype.Numeric `json:"weight"`
-	Color               pgtype.Text    `json:"color"`
-	Gender              pgtype.Text    `json:"gender"`
-	PhotoUrl            pgtype.Text    `json:"photo_url"`
-	MedicalNotes        pgtype.Text    `json:"medical_notes"`
-	DietaryRequirements pgtype.Text    `json:"dietary_requirements"`
+	Color               *string        `json:"color"`
+	Gender              *string        `json:"gender"`
+	PhotoUrl            *string        `json:"photo_url"`
+	MedicalNotes        *string        `json:"medical_notes"`
+	DietaryRequirements *string        `json:"dietary_requirements"`
 	DateOfDeath         pgtype.Date    `json:"date_of_death"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`

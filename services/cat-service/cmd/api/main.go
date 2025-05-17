@@ -26,6 +26,14 @@ func main() {
 	log.Info("Connected to database")
 	defer db.Close()
 
+	// * Connect to Redis
+	rdb := database.ConnectRedis(cfg.RedisAddr)
+	if rdb == nil {
+		log.WithError(err).Fatal("failed to connect to redis")
+	}
+	log.Info("Connected to redis")
+	defer rdb.Close()
+
 	// * Run migrations
 	err = database.RunMigrations(cfg.DatabaseUrl)
 	if err != nil {
@@ -34,5 +42,5 @@ func main() {
 	log.Info("Migrations ran successfully")
 
 	// * Start server
-	StartServer(db, cfg)
+	StartServer(db, rdb, cfg)
 }

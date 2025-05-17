@@ -10,6 +10,7 @@ type Config struct {
 	DatabaseUrl string
 	Port        string
 	Environment string
+	RedisAddr   string
 
 	AccessTokenSecret string
 }
@@ -26,6 +27,7 @@ func LoadConfig() (*Config, error) {
 	dsn := os.Getenv("CAT_DB_URL")
 	port := os.Getenv("CAT_PORT")
 	environment := os.Getenv("ENVIRONMENT")
+	redisAddr := os.Getenv("REDIS_ADDR")
 
 	accessTokenSecret := os.Getenv("ACCESS_TOKEN_SECRET")
 
@@ -33,6 +35,7 @@ func LoadConfig() (*Config, error) {
 		DatabaseUrl: dsn,
 		Port:        port,
 		Environment: environment,
+		RedisAddr:   redisAddr,
 
 		AccessTokenSecret: accessTokenSecret,
 	}
