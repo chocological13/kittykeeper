@@ -28,27 +28,27 @@ func NewCatHandler(catService *service.CatService, log *log.Entry) *CatHandler {
 func (h *CatHandler) CreateCat(c *gin.Context) {
 	var req models.CreateCatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.WithError(err).Warn("failed to bind request to submit cat data")
+		h.log.WithError(err).Warn("failed to bind request to submit cat data")
 		errs := utils.FormatValidationError(err)
 		c.JSON(400, gin.H{"error": errs})
 		return
 	}
 
-	var dob time.Time
-	var err error
-	if req.DateOfBirth != nil {
-		dob, err = time.Parse("2006-01-02", *req.DateOfBirth)
+	var dob *time.Time
+	if req.DateOfBirth != nil && *req.DateOfBirth != "" {
+		d, err := time.Parse("2006-01-02", *req.DateOfBirth)
 		if err != nil {
-			log.WithError(err).Warn("failed to parse date of birth")
+			h.log.WithError(err).Warn("failed to parse date of birth")
 			c.JSON(400, gin.H{"error": "invalid date of birth"})
 			return
 		}
+		dob = &d
 	}
 
 	catParams := models.CreateCatRequestParams{
 		Name:                req.Name,
 		Breed:               req.Breed,
-		DateOfBirth:         &dob,
+		DateOfBirth:         dob,
 		Weight:              req.Weight,
 		Color:               req.Color,
 		Gender:              req.Gender,
@@ -59,24 +59,24 @@ func (h *CatHandler) CreateCat(c *gin.Context) {
 
 	userIDValue, exists := c.Get("userID")
 	if !exists {
-		log.Warnf("user not authenticated")
+		h.log.Warnf("user not authenticated")
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
 	}
 
 	userID, ok := userIDValue.(uuid.UUID)
 	if !ok {
-		log.Error("invalid user id")
+		h.log.Error("invalid user id")
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid user id"})
 		return
 	}
 
-	log.Info("Creating cat")
+	h.log.Info("Creating cat")
 	cat, err := h.catService.CreateCat(c.Request.Context(), userID, catParams)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, service.ErrInvalidCatData) {
-			log.WithError(err).Warn("failed to create cat")
+			h.log.WithError(err).Warn("failed to create cat")
 			statusCode = http.StatusBadRequest
 		}
 		c.JSON(statusCode, gin.H{"error": err.Error()})
