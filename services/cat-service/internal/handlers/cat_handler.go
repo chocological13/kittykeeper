@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"time"
 )
 
 type CatHandler struct {
@@ -34,52 +33,23 @@ func (h *CatHandler) CreateCat(c *gin.Context) {
 		return
 	}
 
-	var dob *time.Time
-	if req.DateOfBirth != nil && *req.DateOfBirth != "" {
-		d, err := time.Parse("2006-01-02", *req.DateOfBirth)
-		if err != nil {
-			h.log.WithError(err).Warn("failed to parse date of birth")
-			c.JSON(400, gin.H{"error": "invalid date of birth"})
-			return
-		}
-		dob = &d
-	}
-
-	catParams := models.CreateCatRequestParams{
-		Name:                req.Name,
-		Breed:               req.Breed,
-		DateOfBirth:         dob,
-		Weight:              req.Weight,
-		Color:               req.Color,
-		Gender:              req.Gender,
-		PhotoUrl:            req.PhotoUrl,
-		MedicalNotes:        req.MedicalNotes,
-		DietaryRequirements: req.DietaryRequirements,
-	}
-
-	userIDValue, exists := c.Get("userID")
-	if !exists {
-		h.log.Warnf("user not authenticated")
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+	params, err := req.ToParams()
+	if err != nil {
+		h.log.WithError(err).Warn("failed to convert request to cat params")
+		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	userID, ok := userIDValue.(uuid.UUID)
+	userID, ok := h.getUserID(c)
 	if !ok {
-		h.log.Error("invalid user id")
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid user id"})
 		return
 	}
 
 	h.log.Info("Creating cat")
-	cat, err := h.catService.CreateCat(c.Request.Context(), userID, catParams)
+	cat, err := h.catService.CreateCat(c.Request.Context(), userID, params)
 	if err != nil {
-		statusCode := http.StatusInternalServerError
-		if errors.Is(err, service.ErrInvalidCatData) {
-			h.log.WithError(err).Warn("failed to create cat")
-			statusCode = http.StatusBadRequest
-		}
-		c.JSON(statusCode, gin.H{"error": err.Error()})
+		h.errorHandler(c, err)
+		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"cat": cat})
@@ -87,42 +57,72 @@ func (h *CatHandler) CreateCat(c *gin.Context) {
 
 func (h *CatHandler) GetCat(c *gin.Context) {
 	// * Get cat ID from param
+	catID, ok := h.getCatID(c)
+	if !ok {
+		return
+	}
+
+	// * Get user ID from context
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	cat, err := h.catService.GetCatByID(c.Request.Context(), catID, userID)
+	if err != nil {
+		h.errorHandler(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"cat": cat})
+}
+
+// ? Helper
+func (h *CatHandler) getCatID(c *gin.Context) (uuid.UUID, bool) {
 	catIDStr := c.Query("id")
 	if catIDStr == "" {
 		h.log.Warn("cat id not provided")
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "cat id not provided"})
-		return
+		return uuid.UUID{}, false
 	}
 
 	catID, err := uuid.Parse(catIDStr)
 	if err != nil {
 		h.log.WithError(err).Warnf("failed to parse cat id: %s", catIDStr)
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid cat id"})
-		return
+		return uuid.UUID{}, false
 	}
 
+	return catID, true
+}
+
+func (h *CatHandler) getUserID(c *gin.Context) (uuid.UUID, bool) {
 	userIDStr, exists := c.Get("userID")
 	if !exists {
 		h.log.Warnf("user not authenticated")
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
-		return
+		return uuid.UUID{}, false
 	}
 	userID, ok := userIDStr.(uuid.UUID)
 	if !ok {
 		h.log.Error("invalid user id")
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid user id"})
-		return
+		return uuid.UUID{}, false
 	}
 
-	cat, err := h.catService.GetCatByID(c.Request.Context(), catID, userID)
-	if err != nil {
-		statusCode := http.StatusInternalServerError
-		if errors.Is(err, service.ErrCatNotFound) {
-			h.log.WithError(err).Warnf("failed to get cat with id: %s", catIDStr)
-			statusCode = http.StatusNotFound
-		}
-		c.JSON(statusCode, gin.H{"error": err.Error()})
-	}
+	return userID, true
+}
 
-	c.JSON(http.StatusOK, gin.H{"cat": cat})
+func (h *CatHandler) errorHandler(c *gin.Context, err error) {
+	statusCode := http.StatusInternalServerError
+	if errors.Is(err, service.ErrCatNotFound) {
+		h.log.WithError(err).Warn("cat not found")
+		statusCode = http.StatusNotFound
+	} else if errors.Is(err, service.ErrNotCatOwner) {
+		h.log.WithError(err).Warn("user is not the owner of the cat")
+		statusCode = http.StatusForbidden
+	} else if errors.Is(err, service.ErrInvalidCatData) {
+		h.log.WithError(err).Warn("invalid cat data")
+	}
+	c.JSON(statusCode, gin.H{"error": err.Error()})
 }

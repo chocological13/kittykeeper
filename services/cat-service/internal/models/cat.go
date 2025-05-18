@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"time"
 )
@@ -62,4 +63,28 @@ type CatResponse struct {
 	DietaryRequirements *string    `json:"dietary_requirements,omitempty"`
 	CreatedAt           time.Time  `json:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
+}
+
+// ? Helper
+func (c *CreateCatRequest) ToParams() (CreateCatRequestParams, error) {
+	var dob *time.Time
+	if c.DateOfBirth != nil && *c.DateOfBirth != "" {
+		d, err := time.Parse("2006-01-02", *c.DateOfBirth)
+		if err != nil {
+			return CreateCatRequestParams{}, fmt.Errorf("invalid date of birth: %w", err)
+		}
+		dob = &d
+	}
+
+	return CreateCatRequestParams{
+		Name:                c.Name,
+		Breed:               c.Breed,
+		DateOfBirth:         dob,
+		Weight:              c.Weight,
+		Color:               c.Color,
+		Gender:              c.Gender,
+		PhotoUrl:            c.PhotoUrl,
+		MedicalNotes:        c.MedicalNotes,
+		DietaryRequirements: c.DietaryRequirements,
+	}, nil
 }
