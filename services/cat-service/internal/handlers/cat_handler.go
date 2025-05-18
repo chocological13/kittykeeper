@@ -77,6 +77,25 @@ func (h *CatHandler) GetCat(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cat": cat})
 }
 
+func (h *CatHandler) ListCatsByOwner(c *gin.Context) {
+	// * Get user ID from context
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	cats, err := h.catService.ListCatsByOwner(c.Request.Context(), userID)
+	if err != nil {
+		h.errorHandler(c, err)
+		return
+	} else if len(cats) == 0 {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "no cats found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"cats": cats})
+}
+
 func (h *CatHandler) UpdateCat(c *gin.Context) {
 	catID, ok := h.getCatID(c)
 	if !ok {
@@ -113,7 +132,7 @@ func (h *CatHandler) UpdateCat(c *gin.Context) {
 
 // ? Helper
 func (h *CatHandler) getCatID(c *gin.Context) (uuid.UUID, bool) {
-	catIDStr := c.Query("id")
+	catIDStr := c.Param("id")
 	if catIDStr == "" {
 		h.log.Warn("cat id not provided")
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "cat id not provided"})

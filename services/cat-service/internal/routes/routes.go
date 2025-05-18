@@ -13,10 +13,11 @@ func SetUpRoutes(rg *gin.RouterGroup, middleware *middleware.AuthMiddleware,
 	cats := rg.Group("/cats", middleware.RequireAuth())
 	{
 		// ? Endpoints that do not require ownership check
-		cats.POST("/", catHandler.CreateCat)
+		cats.POST("", catHandler.CreateCat)
+		cats.GET("", catHandler.ListCatsByOwner)
 
 		// ? Endpoints that require ownership check
-		catResource := cats.Group("")
+		catResource := cats.Group("/:id")
 		{
 			catResource.Use(middleware.OwnershipCheck(catService))
 

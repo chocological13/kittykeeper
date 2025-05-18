@@ -81,6 +81,20 @@ func (s *CatService) GetCatByID(ctx context.Context, catID, userID uuid.UUID) (m
 	return utils.FromDBCat(cat), nil
 }
 
+func (s *CatService) ListCatsByOwner(ctx context.Context, userID uuid.UUID) ([]models.CatResponse, error) {
+	cats, err := s.db.ListCatsByOwner(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cats by owner: %w", err)
+	}
+
+	responses := make([]models.CatResponse, len(cats))
+	for i, cat := range cats {
+		responses[i] = utils.FromDBCat(cat)
+	}
+
+	return responses, nil
+}
+
 func (s *CatService) UpdateCat(ctx context.Context, catID, userID uuid.UUID, req models.CatRequestParams) (models.CatResponse,
 	error) {
 	pgWeight, err := utils.PtrToPgNumeric(req.Weight)

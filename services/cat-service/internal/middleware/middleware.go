@@ -89,7 +89,7 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 func (m *AuthMiddleware) OwnershipCheck(catService CatOwnershipChecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// * Get both cat id and user id
-		rawID := c.Query("id")
+		rawID := c.Param("id")
 		catID, err := uuid.Parse(rawID)
 		if err != nil {
 			m.log.WithError(err).Error("invalid cat id")
