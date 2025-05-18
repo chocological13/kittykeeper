@@ -36,7 +36,19 @@ type CreateCatRequest struct {
 	DietaryRequirements *string  `json:"dietary_requirements"`
 }
 
-type CreateCatRequestParams struct {
+type UpdateCatRequest struct {
+	Name                string   `json:"name"`
+	Breed               *string  `json:"breed"`
+	DateOfBirth         *string  `json:"date_of_birth"`
+	Weight              *float64 `json:"weight" binding:"omitempty,numeric,min=0,max=100"`
+	Color               *string  `json:"color"`
+	Gender              *string  `json:"gender" binding:"omitempty,oneof=male female unknown"`
+	PhotoUrl            *string  `json:"photo_url"`
+	MedicalNotes        *string  `json:"medical_notes"`
+	DietaryRequirements *string  `json:"dietary_requirements"`
+}
+
+type CatRequestParams struct {
 	Name                string
 	Breed               *string
 	DateOfBirth         *time.Time
@@ -66,17 +78,17 @@ type CatResponse struct {
 }
 
 // ? Helper
-func (c *CreateCatRequest) ToParams() (CreateCatRequestParams, error) {
+func (c *CreateCatRequest) ToParams() (CatRequestParams, error) {
 	var dob *time.Time
 	if c.DateOfBirth != nil && *c.DateOfBirth != "" {
 		d, err := time.Parse("2006-01-02", *c.DateOfBirth)
 		if err != nil {
-			return CreateCatRequestParams{}, fmt.Errorf("invalid date of birth: %w", err)
+			return CatRequestParams{}, fmt.Errorf("invalid date of birth: %w", err)
 		}
 		dob = &d
 	}
 
-	return CreateCatRequestParams{
+	return CatRequestParams{
 		Name:                c.Name,
 		Breed:               c.Breed,
 		DateOfBirth:         dob,
@@ -86,5 +98,28 @@ func (c *CreateCatRequest) ToParams() (CreateCatRequestParams, error) {
 		PhotoUrl:            c.PhotoUrl,
 		MedicalNotes:        c.MedicalNotes,
 		DietaryRequirements: c.DietaryRequirements,
+	}, nil
+}
+
+func (u *UpdateCatRequest) ToParams() (CatRequestParams, error) {
+	var dob *time.Time
+	if u.DateOfBirth != nil && *u.DateOfBirth != "" {
+		d, err := time.Parse("2006-01-02", *u.DateOfBirth)
+		if err != nil {
+			return CatRequestParams{}, fmt.Errorf("invalid date of birth: %w", err)
+		}
+		dob = &d
+	}
+
+	return CatRequestParams{
+		Name:                u.Name,
+		Breed:               u.Breed,
+		DateOfBirth:         dob,
+		Weight:              u.Weight,
+		Color:               u.Color,
+		Gender:              u.Gender,
+		PhotoUrl:            u.PhotoUrl,
+		MedicalNotes:        u.MedicalNotes,
+		DietaryRequirements: u.DietaryRequirements,
 	}, nil
 }

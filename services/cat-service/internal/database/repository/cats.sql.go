@@ -194,6 +194,42 @@ func (q *Queries) MarkCatsDeath(ctx context.Context, arg MarkCatsDeathParams) er
 	return err
 }
 
+const recordCatDeath = `-- name: RecordCatDeath :one
+UPDATE cats SET
+  date_of_death = $1
+WHERE id = $2
+AND deleted_at IS NULL
+RETURNING id, owner_id, name, breed, date_of_birth, weight, color, gender, photo_url, medical_notes, dietary_requirements, date_of_death, created_at, updated_at, deleted_at
+`
+
+type RecordCatDeathParams struct {
+	DateOfDeath pgtype.Date `json:"date_of_death"`
+	ID          uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) RecordCatDeath(ctx context.Context, arg RecordCatDeathParams) (Cat, error) {
+	row := q.db.QueryRow(ctx, recordCatDeath, arg.DateOfDeath, arg.ID)
+	var i Cat
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Name,
+		&i.Breed,
+		&i.DateOfBirth,
+		&i.Weight,
+		&i.Color,
+		&i.Gender,
+		&i.PhotoUrl,
+		&i.MedicalNotes,
+		&i.DietaryRequirements,
+		&i.DateOfDeath,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const softDeleteCat = `-- name: SoftDeleteCat :exec
 UPDATE cats
 SET deleted_at = NOW()
@@ -234,10 +270,9 @@ UPDATE cats SET
   photo_url = COALESCE($7, photo_url),
   medical_notes = COALESCE($8, medical_notes),
   dietary_requirements = COALESCE($9, dietary_requirements),
-  date_of_death = COALESCE($10, date_of_death),
   updated_at = NOW()
-WHERE id = $11
-AND owner_id = $12
+WHERE id = $10
+AND owner_id = $11
 AND deleted_at IS NULL
 RETURNING id, owner_id, name, breed, date_of_birth, weight, color, gender, photo_url, medical_notes, dietary_requirements, date_of_death, created_at, updated_at, deleted_at
 `
@@ -252,7 +287,6 @@ type UpdateCatParams struct {
 	PhotoUrl            *string        `json:"photo_url"`
 	MedicalNotes        *string        `json:"medical_notes"`
 	DietaryRequirements *string        `json:"dietary_requirements"`
-	DateOfDeath         pgtype.Date    `json:"date_of_death"`
 	ID                  uuid.UUID      `json:"id"`
 	OwnerID             uuid.UUID      `json:"owner_id"`
 }
@@ -268,7 +302,6 @@ func (q *Queries) UpdateCat(ctx context.Context, arg UpdateCatParams) (Cat, erro
 		arg.PhotoUrl,
 		arg.MedicalNotes,
 		arg.DietaryRequirements,
-		arg.DateOfDeath,
 		arg.ID,
 		arg.OwnerID,
 	)

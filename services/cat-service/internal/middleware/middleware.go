@@ -12,7 +12,7 @@ import (
 )
 
 type CatOwnershipChecker interface {
-	VerifyCatOwnership(ctx context.Context, userID, catID uuid.UUID) (bool, error)
+	VerifyCatOwnership(ctx context.Context, catID, userID uuid.UUID) (bool, error)
 }
 
 type AuthMiddleware struct {
@@ -105,7 +105,7 @@ func (m *AuthMiddleware) OwnershipCheck(catService CatOwnershipChecker) gin.Hand
 		}
 
 		// * Check ownership
-		isOwner, err := catService.VerifyCatOwnership(c.Request.Context(), userID.(uuid.UUID), catID)
+		isOwner, err := catService.VerifyCatOwnership(c.Request.Context(), catID, userID.(uuid.UUID))
 		if err != nil {
 			m.log.WithFields(log.Fields{
 				"cat_id":  catID,

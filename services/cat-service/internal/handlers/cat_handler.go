@@ -77,6 +77,40 @@ func (h *CatHandler) GetCat(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cat": cat})
 }
 
+func (h *CatHandler) UpdateCat(c *gin.Context) {
+	catID, ok := h.getCatID(c)
+	if !ok {
+		return
+	}
+
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	var req models.UpdateCatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.log.WithError(err).Warn("failed to bind request to update cat data")
+		errs := utils.FormatValidationError(err)
+		c.JSON(400, gin.H{"error": errs})
+	}
+	params, err := req.ToParams()
+	if err != nil {
+		h.log.WithError(err).Warn("failed to convert request to cat params")
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.log.Info("Updating cat")
+	updatedCat, err := h.catService.UpdateCat(c.Request.Context(), catID, userID, params)
+	if err != nil {
+		h.errorHandler(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"cat": updatedCat})
+}
+
 // ? Helper
 func (h *CatHandler) getCatID(c *gin.Context) (uuid.UUID, bool) {
 	catIDStr := c.Query("id")

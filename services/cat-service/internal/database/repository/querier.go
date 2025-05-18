@@ -17,6 +17,7 @@ type Querier interface {
 	GetCatOwner(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	ListCatsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Cat, error)
 	MarkCatsDeath(ctx context.Context, arg MarkCatsDeathParams) error
+	RecordCatDeath(ctx context.Context, arg RecordCatDeathParams) (Cat, error)
 	SoftDeleteCat(ctx context.Context, arg SoftDeleteCatParams) error
 	SoftDeleteCatsByOwner(ctx context.Context, ownerID uuid.UUID) error
 	UpdateCat(ctx context.Context, arg UpdateCatParams) (Cat, error)

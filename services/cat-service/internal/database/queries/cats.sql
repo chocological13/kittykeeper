@@ -43,10 +43,17 @@ UPDATE cats SET
   photo_url = COALESCE($7, photo_url),
   medical_notes = COALESCE($8, medical_notes),
   dietary_requirements = COALESCE($9, dietary_requirements),
-  date_of_death = COALESCE($10, date_of_death),
   updated_at = NOW()
-WHERE id = $11
-AND owner_id = $12
+WHERE id = $10
+AND owner_id = $11
+AND deleted_at IS NULL
+RETURNING *;
+
+-- name: RecordCatDeath :one
+UPDATE cats SET
+  date_of_death = $1
+  updated_at = NOW()
+WHERE id = $2
 AND deleted_at IS NULL
 RETURNING *;
 

@@ -21,6 +21,7 @@ func SetUpRoutes(rg *gin.RouterGroup, middleware *middleware.AuthMiddleware,
 			catResource.Use(middleware.OwnershipCheck(catService))
 
 			catResource.GET("", catHandler.GetCat)
+			catResource.PUT("", catHandler.UpdateCat)
 		}
 	}
 }
