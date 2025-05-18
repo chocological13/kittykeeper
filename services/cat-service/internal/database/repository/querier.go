@@ -8,17 +8,19 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	CatByOwnerExists(ctx context.Context, arg CatByOwnerExistsParams) (bool, error)
+	ClearDateOfDeath(ctx context.Context, arg ClearDateOfDeathParams) error
 	CountCatsByOwner(ctx context.Context, ownerID uuid.UUID) (int64, error)
 	CreateCat(ctx context.Context, arg CreateCatParams) (Cat, error)
 	GetCatByID(ctx context.Context, id uuid.UUID) (Cat, error)
 	GetCatOwner(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	GetCatsBirthday(ctx context.Context, arg GetCatsBirthdayParams) (pgtype.Date, error)
+	GetCatsName(ctx context.Context, arg GetCatsNameParams) (string, error)
 	ListCatsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Cat, error)
-	MarkCatsDeath(ctx context.Context, arg MarkCatsDeathParams) error
-	RecordCatDeath(ctx context.Context, arg RecordCatDeathParams) (Cat, error)
 	SoftDeleteCat(ctx context.Context, arg SoftDeleteCatParams) error
 	SoftDeleteCatsByOwner(ctx context.Context, ownerID uuid.UUID) error
 	UpdateCat(ctx context.Context, arg UpdateCatParams) (Cat, error)

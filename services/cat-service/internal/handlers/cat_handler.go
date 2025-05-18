@@ -130,6 +130,26 @@ func (h *CatHandler) UpdateCat(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cat": updatedCat})
 }
 
+func (h *CatHandler) ClearDateOfDeath(c *gin.Context) {
+	catID, ok := h.getCatID(c)
+	if !ok {
+		return
+	}
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	h.log.Info("Clearing date of death")
+	err := h.catService.ClearDateOfDeath(c.Request.Context(), catID, userID)
+	if err != nil {
+		h.errorHandler(c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 // ? Helper
 func (h *CatHandler) getCatID(c *gin.Context) (uuid.UUID, bool) {
 	catIDStr := c.Param("id")

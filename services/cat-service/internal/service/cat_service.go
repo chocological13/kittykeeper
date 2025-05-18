@@ -113,11 +113,37 @@ func (s *CatService) UpdateCat(ctx context.Context, catID, userID uuid.UUID, req
 	error) {
 	pgWeight, err := utils.PtrToPgNumeric(req.Weight)
 	if err != nil {
-		return models.CatResponse{}, ErrInvalidCatData
+		return models.CatResponse{}, fmt.Errorf("%w: failed to parse weight: %w", ErrInvalidCatData, err)
+	}
+
+	if req.DateOfDeath != nil {
+		birthday, err := s.db.GetCatsBirthday(ctx, repository.GetCatsBirthdayParams{
+			ID:      catID,
+			OwnerID: userID,
+		})
+		if err != nil {
+			return models.CatResponse{}, fmt.Errorf("failed to get cats death: %w", err)
+		} else if birthday.Time.After(*req.DateOfDeath) {
+			return models.CatResponse{}, fmt.Errorf("%w: date of death cannot be before date of birth", ErrInvalidCatData)
+		}
+	}
+
+	var name string
+	if req.Name == "" {
+		initialName, err := s.db.GetCatsName(ctx, repository.GetCatsNameParams{
+			ID:      catID,
+			OwnerID: userID,
+		})
+		if err != nil {
+			return models.CatResponse{}, fmt.Errorf("failed to get cats name: %w", err)
+		}
+		name = initialName
+	} else {
+		name = req.Name
 	}
 
 	params := repository.UpdateCatParams{
-		Name:                req.Name,
+		Name:                name,
 		Breed:               req.Breed,
 		DateOfBirth:         utils.PtrToPgDate(req.DateOfBirth),
 		Weight:              pgWeight,
@@ -126,6 +152,7 @@ func (s *CatService) UpdateCat(ctx context.Context, catID, userID uuid.UUID, req
 		PhotoUrl:            req.PhotoUrl,
 		MedicalNotes:        req.MedicalNotes,
 		DietaryRequirements: req.DietaryRequirements,
+		DateOfDeath:         utils.PtrToPgDate(req.DateOfDeath),
 		ID:                  catID,
 		OwnerID:             userID,
 	}
@@ -148,4 +175,22 @@ func (s *CatService) UpdateCat(ctx context.Context, catID, userID uuid.UUID, req
 	}
 
 	return utils.FromDBCat(newCat), nil
+}
+
+func (s *CatService) ClearDateOfDeath(ctx context.Context, catID, userID uuid.UUID) error {
+	err := s.db.ClearDateOfDeath(ctx, repository.ClearDateOfDeathParams{
+		ID:      catID,
+		OwnerID: userID,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			err = s.CatByOwnerExists(ctx, catID, userID)
+			if err != nil {
+				return err
+			}
+			return ErrNotCatOwner
+		}
+		return fmt.Errorf("failed to clear date of death: %w", err)
+	}
+	return nil
 }

@@ -46,6 +46,7 @@ type UpdateCatRequest struct {
 	PhotoUrl            *string  `json:"photo_url"`
 	MedicalNotes        *string  `json:"medical_notes"`
 	DietaryRequirements *string  `json:"dietary_requirements"`
+	DateOfDeath         *string  `json:"date_of_death"`
 }
 
 type CatRequestParams struct {
@@ -58,6 +59,7 @@ type CatRequestParams struct {
 	PhotoUrl            *string
 	MedicalNotes        *string
 	DietaryRequirements *string
+	DateOfDeath         *time.Time
 }
 
 type CatResponse struct {
@@ -88,6 +90,10 @@ func (c *CreateCatRequest) ToParams() (CatRequestParams, error) {
 		dob = &d
 	}
 
+	if dob != nil && dob.After(time.Now()) {
+		return CatRequestParams{}, fmt.Errorf("date of birth cannot be in the future")
+	}
+
 	return CatRequestParams{
 		Name:                c.Name,
 		Breed:               c.Breed,
@@ -109,6 +115,22 @@ func (u *UpdateCatRequest) ToParams() (CatRequestParams, error) {
 			return CatRequestParams{}, fmt.Errorf("invalid date of birth: %w", err)
 		}
 		dob = &d
+	}
+
+	var dod *time.Time
+	if u.DateOfDeath != nil && *u.DateOfDeath != "" {
+		d, err := time.Parse("2006-01-02", *u.DateOfDeath)
+		if err != nil {
+			return CatRequestParams{}, fmt.Errorf("invalid date of death: %w", err)
+		}
+		dod = &d
+	}
+
+	if dob != nil && dob.After(time.Now()) {
+		return CatRequestParams{}, fmt.Errorf("date of birth cannot be in the future")
+	}
+	if dod != nil && dod.After(time.Now()) {
+		return CatRequestParams{}, fmt.Errorf("date of death cannot be in the future")
 	}
 
 	return CatRequestParams{

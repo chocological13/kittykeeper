@@ -34,6 +34,24 @@ func (q *Queries) CatByOwnerExists(ctx context.Context, arg CatByOwnerExistsPara
 	return exists, err
 }
 
+const clearDateOfDeath = `-- name: ClearDateOfDeath :exec
+UPDATE cats
+SET date_of_death = NULL
+WHERE id = $1
+AND owner_id = $2
+AND deleted_at IS NULL
+`
+
+type ClearDateOfDeathParams struct {
+	ID      uuid.UUID `json:"id"`
+	OwnerID uuid.UUID `json:"owner_id"`
+}
+
+func (q *Queries) ClearDateOfDeath(ctx context.Context, arg ClearDateOfDeathParams) error {
+	_, err := q.db.Exec(ctx, clearDateOfDeath, arg.ID, arg.OwnerID)
+	return err
+}
+
 const countCatsByOwner = `-- name: CountCatsByOwner :one
 SELECT COUNT(*)
 FROM cats
@@ -155,6 +173,46 @@ func (q *Queries) GetCatOwner(ctx context.Context, id uuid.UUID) (uuid.UUID, err
 	return owner_id, err
 }
 
+const getCatsBirthday = `-- name: GetCatsBirthday :one
+SELECT date_of_birth
+FROM cats
+WHERE id = $1
+AND owner_id = $2
+AND deleted_at IS NULL
+`
+
+type GetCatsBirthdayParams struct {
+	ID      uuid.UUID `json:"id"`
+	OwnerID uuid.UUID `json:"owner_id"`
+}
+
+func (q *Queries) GetCatsBirthday(ctx context.Context, arg GetCatsBirthdayParams) (pgtype.Date, error) {
+	row := q.db.QueryRow(ctx, getCatsBirthday, arg.ID, arg.OwnerID)
+	var date_of_birth pgtype.Date
+	err := row.Scan(&date_of_birth)
+	return date_of_birth, err
+}
+
+const getCatsName = `-- name: GetCatsName :one
+SELECT name
+FROM cats
+WHERE id = $1
+AND owner_id = $2
+AND deleted_at IS NULL
+`
+
+type GetCatsNameParams struct {
+	ID      uuid.UUID `json:"id"`
+	OwnerID uuid.UUID `json:"owner_id"`
+}
+
+func (q *Queries) GetCatsName(ctx context.Context, arg GetCatsNameParams) (string, error) {
+	row := q.db.QueryRow(ctx, getCatsName, arg.ID, arg.OwnerID)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
 const listCatsByOwner = `-- name: ListCatsByOwner :many
 SELECT id, owner_id, name, breed, date_of_birth, weight, color, gender, photo_url, medical_notes, dietary_requirements, date_of_death, created_at, updated_at, deleted_at FROM cats
 WHERE owner_id = $1
@@ -197,62 +255,6 @@ func (q *Queries) ListCatsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Cat
 	return items, nil
 }
 
-const markCatsDeath = `-- name: MarkCatsDeath :exec
-UPDATE cats
-SET date_of_death = $1
-WHERE id = $2
-AND owner_id = $3
-AND deleted_at IS NULL
-`
-
-type MarkCatsDeathParams struct {
-	DateOfDeath pgtype.Date `json:"date_of_death"`
-	ID          uuid.UUID   `json:"id"`
-	OwnerID     uuid.UUID   `json:"owner_id"`
-}
-
-func (q *Queries) MarkCatsDeath(ctx context.Context, arg MarkCatsDeathParams) error {
-	_, err := q.db.Exec(ctx, markCatsDeath, arg.DateOfDeath, arg.ID, arg.OwnerID)
-	return err
-}
-
-const recordCatDeath = `-- name: RecordCatDeath :one
-UPDATE cats SET
-  date_of_death = $1,
-  updated_at = NOW()
-WHERE id = $2
-AND deleted_at IS NULL
-RETURNING id, owner_id, name, breed, date_of_birth, weight, color, gender, photo_url, medical_notes, dietary_requirements, date_of_death, created_at, updated_at, deleted_at
-`
-
-type RecordCatDeathParams struct {
-	DateOfDeath pgtype.Date `json:"date_of_death"`
-	ID          uuid.UUID   `json:"id"`
-}
-
-func (q *Queries) RecordCatDeath(ctx context.Context, arg RecordCatDeathParams) (Cat, error) {
-	row := q.db.QueryRow(ctx, recordCatDeath, arg.DateOfDeath, arg.ID)
-	var i Cat
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Name,
-		&i.Breed,
-		&i.DateOfBirth,
-		&i.Weight,
-		&i.Color,
-		&i.Gender,
-		&i.PhotoUrl,
-		&i.MedicalNotes,
-		&i.DietaryRequirements,
-		&i.DateOfDeath,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
 const softDeleteCat = `-- name: SoftDeleteCat :exec
 UPDATE cats
 SET deleted_at = NOW()
@@ -293,9 +295,10 @@ UPDATE cats SET
   photo_url = COALESCE($7, photo_url),
   medical_notes = COALESCE($8, medical_notes),
   dietary_requirements = COALESCE($9, dietary_requirements),
+  date_of_death = COALESCE($10, date_of_death),
   updated_at = NOW()
-WHERE id = $10
-AND owner_id = $11
+WHERE id = $11
+AND owner_id = $12
 AND deleted_at IS NULL
 RETURNING id, owner_id, name, breed, date_of_birth, weight, color, gender, photo_url, medical_notes, dietary_requirements, date_of_death, created_at, updated_at, deleted_at
 `
@@ -310,6 +313,7 @@ type UpdateCatParams struct {
 	PhotoUrl            *string        `json:"photo_url"`
 	MedicalNotes        *string        `json:"medical_notes"`
 	DietaryRequirements *string        `json:"dietary_requirements"`
+	DateOfDeath         pgtype.Date    `json:"date_of_death"`
 	ID                  uuid.UUID      `json:"id"`
 	OwnerID             uuid.UUID      `json:"owner_id"`
 }
@@ -325,6 +329,7 @@ func (q *Queries) UpdateCat(ctx context.Context, arg UpdateCatParams) (Cat, erro
 		arg.PhotoUrl,
 		arg.MedicalNotes,
 		arg.DietaryRequirements,
+		arg.DateOfDeath,
 		arg.ID,
 		arg.OwnerID,
 	)
