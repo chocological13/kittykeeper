@@ -12,6 +12,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const catByOwnerExists = `-- name: CatByOwnerExists :one
+SELECT EXISTS (
+  SELECT 1
+  FROM cats
+  WHERE id = $1
+  AND owner_id = $2
+  AND deleted_at IS NULL
+) AS exists
+`
+
+type CatByOwnerExistsParams struct {
+	ID      uuid.UUID `json:"id"`
+	OwnerID uuid.UUID `json:"owner_id"`
+}
+
+func (q *Queries) CatByOwnerExists(ctx context.Context, arg CatByOwnerExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, catByOwnerExists, arg.ID, arg.OwnerID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const countCatsByOwner = `-- name: CountCatsByOwner :one
 SELECT COUNT(*)
 FROM cats
@@ -196,7 +218,8 @@ func (q *Queries) MarkCatsDeath(ctx context.Context, arg MarkCatsDeathParams) er
 
 const recordCatDeath = `-- name: RecordCatDeath :one
 UPDATE cats SET
-  date_of_death = $1
+  date_of_death = $1,
+  updated_at = NOW()
 WHERE id = $2
 AND deleted_at IS NULL
 RETURNING id, owner_id, name, breed, date_of_birth, weight, color, gender, photo_url, medical_notes, dietary_requirements, date_of_death, created_at, updated_at, deleted_at

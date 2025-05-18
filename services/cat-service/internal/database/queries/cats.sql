@@ -20,6 +20,15 @@ SELECT * FROM cats
 WHERE id = $1
 AND deleted_at IS NULL;
 
+-- name: CatByOwnerExists :one
+SELECT EXISTS (
+  SELECT 1
+  FROM cats
+  WHERE id = $1
+  AND owner_id = $2
+  AND deleted_at IS NULL
+) AS exists;
+
 -- name: ListCatsByOwner :many
 SELECT * FROM cats
 WHERE owner_id = $1
@@ -51,7 +60,7 @@ RETURNING *;
 
 -- name: RecordCatDeath :one
 UPDATE cats SET
-  date_of_death = $1
+  date_of_death = $1,
   updated_at = NOW()
 WHERE id = $2
 AND deleted_at IS NULL

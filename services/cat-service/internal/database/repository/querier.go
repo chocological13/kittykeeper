@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CatByOwnerExists(ctx context.Context, arg CatByOwnerExistsParams) (bool, error)
 	CountCatsByOwner(ctx context.Context, ownerID uuid.UUID) (int64, error)
 	CreateCat(ctx context.Context, arg CreateCatParams) (Cat, error)
 	GetCatByID(ctx context.Context, id uuid.UUID) (Cat, error)

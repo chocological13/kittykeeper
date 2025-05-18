@@ -39,6 +39,20 @@ func (s *CatService) VerifyCatOwnership(ctx context.Context, catID, userID uuid.
 	return ownerID == userID, nil
 }
 
+func (s *CatService) CatByOwnerExists(ctx context.Context, catID, userID uuid.UUID) error {
+	exists, err := s.db.CatByOwnerExists(ctx, repository.CatByOwnerExistsParams{
+		ID:      catID,
+		OwnerID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to check if cat exists: %w", err)
+	}
+	if !exists {
+		return ErrCatNotFound
+	}
+	return nil
+}
+
 func (s *CatService) CreateCat(ctx context.Context, ownerID uuid.UUID, req models.CatRequestParams) (models.CatResponse,
 	error) {
 	pgWeight, err := utils.PtrToPgNumeric(req.Weight)
@@ -102,14 +116,6 @@ func (s *CatService) UpdateCat(ctx context.Context, catID, userID uuid.UUID, req
 		return models.CatResponse{}, ErrInvalidCatData
 	}
 
-	isOwner, err := s.VerifyCatOwnership(ctx, catID, userID)
-	if err != nil {
-		return models.CatResponse{}, err
-	}
-	if !isOwner {
-		return models.CatResponse{}, ErrNotCatOwner
-	}
-
 	params := repository.UpdateCatParams{
 		Name:                req.Name,
 		Breed:               req.Breed,
@@ -126,6 +132,18 @@ func (s *CatService) UpdateCat(ctx context.Context, catID, userID uuid.UUID, req
 
 	newCat, err := s.db.UpdateCat(ctx, params)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			/*
+				If there's no result,
+				it means either the cat doesn't exist,
+				or the user is not the owner
+			*/
+			err = s.CatByOwnerExists(ctx, catID, userID)
+			if err != nil {
+				return models.CatResponse{}, err // --> either ErrCatNotFound or error
+			}
+			return models.CatResponse{}, ErrNotCatOwner
+		}
 		return models.CatResponse{}, err
 	}
 
