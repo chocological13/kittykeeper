@@ -150,6 +150,26 @@ func (h *CatHandler) ClearDateOfDeath(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *CatHandler) DeleteCat(c *gin.Context) {
+	catID, ok := h.getCatID(c)
+	if !ok {
+		return
+	}
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	h.log.Info("Deleting cat")
+	err := h.catService.DeleteCat(c.Request.Context(), catID, userID)
+	if err != nil {
+		h.errorHandler(c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 // ? Helper
 func (h *CatHandler) getCatID(c *gin.Context) (uuid.UUID, bool) {
 	catIDStr := c.Param("id")
@@ -197,5 +217,6 @@ func (h *CatHandler) errorHandler(c *gin.Context, err error) {
 	} else if errors.Is(err, service.ErrInvalidCatData) {
 		h.log.WithError(err).Warn("invalid cat data")
 	}
+	h.log.WithError(err).Error("failed to handle request")
 	c.JSON(statusCode, gin.H{"error": err.Error()})
 }

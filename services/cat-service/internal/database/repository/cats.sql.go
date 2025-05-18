@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -34,7 +35,7 @@ func (q *Queries) CatByOwnerExists(ctx context.Context, arg CatByOwnerExistsPara
 	return exists, err
 }
 
-const clearDateOfDeath = `-- name: ClearDateOfDeath :exec
+const clearDateOfDeath = `-- name: ClearDateOfDeath :execresult
 UPDATE cats
 SET date_of_death = NULL
 WHERE id = $1
@@ -47,9 +48,8 @@ type ClearDateOfDeathParams struct {
 	OwnerID uuid.UUID `json:"owner_id"`
 }
 
-func (q *Queries) ClearDateOfDeath(ctx context.Context, arg ClearDateOfDeathParams) error {
-	_, err := q.db.Exec(ctx, clearDateOfDeath, arg.ID, arg.OwnerID)
-	return err
+func (q *Queries) ClearDateOfDeath(ctx context.Context, arg ClearDateOfDeathParams) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, clearDateOfDeath, arg.ID, arg.OwnerID)
 }
 
 const countCatsByOwner = `-- name: CountCatsByOwner :one
@@ -255,7 +255,7 @@ func (q *Queries) ListCatsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Cat
 	return items, nil
 }
 
-const softDeleteCat = `-- name: SoftDeleteCat :exec
+const softDeleteCat = `-- name: SoftDeleteCat :execresult
 UPDATE cats
 SET deleted_at = NOW()
 WHERE id = $1
@@ -268,20 +268,18 @@ type SoftDeleteCatParams struct {
 	OwnerID uuid.UUID `json:"owner_id"`
 }
 
-func (q *Queries) SoftDeleteCat(ctx context.Context, arg SoftDeleteCatParams) error {
-	_, err := q.db.Exec(ctx, softDeleteCat, arg.ID, arg.OwnerID)
-	return err
+func (q *Queries) SoftDeleteCat(ctx context.Context, arg SoftDeleteCatParams) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, softDeleteCat, arg.ID, arg.OwnerID)
 }
 
-const softDeleteCatsByOwner = `-- name: SoftDeleteCatsByOwner :exec
+const softDeleteCatsByOwner = `-- name: SoftDeleteCatsByOwner :execresult
 UPDATE cats
 SET deleted_at = NOW()
 WHERE owner_id = $1
 `
 
-func (q *Queries) SoftDeleteCatsByOwner(ctx context.Context, ownerID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteCatsByOwner, ownerID)
-	return err
+func (q *Queries) SoftDeleteCatsByOwner(ctx context.Context, ownerID uuid.UUID) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, softDeleteCatsByOwner, ownerID)
 }
 
 const updateCat = `-- name: UpdateCat :one

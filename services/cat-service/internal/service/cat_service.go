@@ -178,7 +178,7 @@ func (s *CatService) UpdateCat(ctx context.Context, catID, userID uuid.UUID, req
 }
 
 func (s *CatService) ClearDateOfDeath(ctx context.Context, catID, userID uuid.UUID) error {
-	err := s.db.ClearDateOfDeath(ctx, repository.ClearDateOfDeathParams{
+	result, err := s.db.ClearDateOfDeath(ctx, repository.ClearDateOfDeathParams{
 		ID:      catID,
 		OwnerID: userID,
 	})
@@ -192,5 +192,32 @@ func (s *CatService) ClearDateOfDeath(ctx context.Context, catID, userID uuid.UU
 		}
 		return fmt.Errorf("failed to clear date of death: %w", err)
 	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("failed to delete cat: no rows affected")
+	}
+
+	return nil
+}
+
+func (s *CatService) DeleteCat(ctx context.Context, catID, userID uuid.UUID) error {
+	result, err := s.db.SoftDeleteCat(ctx, repository.SoftDeleteCatParams{
+		ID:      catID,
+		OwnerID: userID,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			err = s.CatByOwnerExists(ctx, catID, userID)
+			if err != nil {
+				return err
+			}
+			return ErrNotCatOwner
+		}
+		return fmt.Errorf("failed to delete cat: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("failed to delete cat: no rows affected")
+	}
+
 	return nil
 }

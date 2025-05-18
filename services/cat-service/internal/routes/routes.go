@@ -24,6 +24,7 @@ func SetUpRoutes(rg *gin.RouterGroup, middleware *middleware.AuthMiddleware,
 			catResource.GET("", catHandler.GetCat)
 			catResource.PUT("", catHandler.UpdateCat)
 			catResource.PATCH("/clear-death", catHandler.ClearDateOfDeath)
+			catResource.DELETE("", catHandler.DeleteCat)
 		}
 	}
 }

@@ -52,7 +52,7 @@ AND owner_id = $12
 AND deleted_at IS NULL
 RETURNING *;
 
--- name: ClearDateOfDeath :exec
+-- name: ClearDateOfDeath :execresult
 UPDATE cats
 SET date_of_death = NULL
 WHERE id = $1
@@ -73,14 +73,14 @@ WHERE id = $1
 AND owner_id = $2
 AND deleted_at IS NULL;
 
--- name: SoftDeleteCat :exec
+-- name: SoftDeleteCat :execresult
 UPDATE cats
 SET deleted_at = NOW()
 WHERE id = $1
 AND owner_id = $2
 AND deleted_at IS NULL;
 
--- name: SoftDeleteCatsByOwner :exec
+-- name: SoftDeleteCatsByOwner :execresult
 UPDATE cats
 SET deleted_at = NOW()
 WHERE owner_id = $1;
